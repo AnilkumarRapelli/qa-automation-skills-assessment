@@ -4,14 +4,21 @@
     {
       "parameters": {
         "rule": {
-          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
         }
       },
-      "id": "node-schedule-trigger",
+      "id": "c25274d7-6c13-4b5e-935c-ed4b6093f9b7",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 300],
+      "position": [
+        -592,
+        336
+      ],
       "notes": "Runs every hour. Change to cronExpression for custom schedule."
     },
     {
@@ -21,36 +28,47 @@
           "timeout": 10000
         }
       },
-      "id": "node-hn-topstories",
+      "id": "7c39c26b-9412-4934-bf83-670f0cab45e4",
       "name": "HN - Fetch Top Story IDs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 300],
+      "position": [
+        -368,
+        336
+      ],
       "continueOnFail": true,
       "onError": "continueErrorOutput",
       "notes": "Fetches array of top story IDs from HackerNews public API (no key needed)"
     },
     {
       "parameters": {
-        "jsCode": "// Take first 5 story IDs and prep for individual fetches\nconst ids = $input.first().json;\nif (!Array.isArray(ids)) {\n  throw new Error('HN API did not return an array. Response: ' + JSON.stringify(ids));\n}\nconst top5 = ids.slice(0, 5);\nreturn top5.map(id => ({ json: { id } }));"
+        "jsCode": "// Each input item IS already one story ID — just take first 5\nconst items = $input.all();\nconst top5 = items.slice(0, 5);\nreturn top5.map(item => ({ json: { id: item.json } }));"
       },
-      "id": "node-slice-ids",
+      "id": "8707a6ce-e9a9-43f0-b1b9-e609205b2c21",
       "name": "Slice Top 5 IDs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 300],
+      "position": [
+        -144,
+        336
+      ],
       "notes": "Transforms the raw array into 5 individual items for looping"
     },
     {
       "parameters": {
         "url": "=https://hacker-news.firebaseio.com/v0/item/{{ $json.id }}.json",
-        "options": { "timeout": 8000 }
+        "options": {
+          "timeout": 8000
+        }
       },
-      "id": "node-hn-story-detail",
+      "id": "384d006f-a463-4ea0-ab2f-b39a9e8da304",
       "name": "HN - Fetch Story Details",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 300],
+      "position": [
+        80,
+        336
+      ],
       "continueOnFail": true,
       "onError": "continueErrorOutput",
       "notes": "Second API call — enriches each ID with full story data (title, score, url, by, descendants)"
@@ -58,73 +76,92 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
             {
               "id": "cond-score",
               "leftValue": "={{ $json.score }}",
               "rightValue": 100,
-              "operator": { "type": "number", "operation": "gte" }
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
-      "id": "node-if-popular",
+      "id": "321aabb4-f3c0-46a0-bb93-d7ba6994eb7e",
       "name": "IF Score >= 100",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1120, 300],
+      "position": [
+        304,
+        336
+      ],
       "notes": "Routes high-scoring stories (>=100 pts) to HOT label; others get TRENDING label"
     },
     {
       "parameters": {
         "jsCode": "// Label hot stories and format for digest\nconst items = $input.all();\nreturn items.map(item => ({\n  json: {\n    label: '🔥 HOT',\n    title: item.json.title || '(no title)',\n    score: item.json.score || 0,\n    url: item.json.url || `https://news.ycombinator.com/item?id=${item.json.id}`,\n    author: item.json.by || 'unknown',\n    comments: item.json.descendants || 0\n  }\n}));"
       },
-      "id": "node-label-hot",
+      "id": "cd00e81d-c90a-4ad0-93ae-f5836623ee82",
       "name": "Label: HOT",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 160],
+      "position": [
+        512,
+        192
+      ],
       "notes": "Formats high-score stories with HOT label"
     },
     {
       "parameters": {
         "jsCode": "// Label trending stories\nconst items = $input.all();\nreturn items.map(item => ({\n  json: {\n    label: '📈 TRENDING',\n    title: item.json.title || '(no title)',\n    score: item.json.score || 0,\n    url: item.json.url || `https://news.ycombinator.com/item?id=${item.json.id}`,\n    author: item.json.by || 'unknown',\n    comments: item.json.descendants || 0\n  }\n}));"
       },
-      "id": "node-label-trending",
+      "id": "cada4eba-7778-4059-a77a-d96dbbdbb7df",
       "name": "Label: TRENDING",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 440],
+      "position": [
+        512,
+        480
+      ],
       "notes": "Formats lower-score stories with TRENDING label"
     },
     {
       "parameters": {
         "jsCode": "// Merge all labelled stories and build the digest message\nconst allStories = $input.all();\n\nconst lines = allStories.map((item, i) => {\n  const d = item.json;\n  return `${i + 1}. ${d.label} — *${d.title}*\\n   Score: ${d.score} pts | By: ${d.author} | Comments: ${d.comments}\\n   ${d.url}`;\n}).join('\\n\\n');\n\nconst now = new Date().toUTCString();\nconst message = `📰 *HackerNews Morning Brief*\\n_${now}_\\n\\n${lines}\\n\\n— Powered by n8n automation`;\n\nreturn [{ json: { message } }];"
       },
-      "id": "node-build-digest",
+      "id": "3ad0ca28-684e-41f9-8f8c-8aa18c4078d4",
       "name": "Build Digest Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 300],
+      "position": [
+        736,
+        336
+      ],
       "notes": "Merges HOT and TRENDING items, formats final Markdown digest string"
     },
     {
       "parameters": {
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "discordWebhookApi",
-        "content": "={{ $json.message }}",
-        "options": {}
+        "authentication": "predefinedCredentialType"
       },
-      "id": "node-discord-post",
+      "id": "11d8830a-fa88-4501-98f9-d690618426cf",
       "name": "Post to Discord",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
-      "position": [1780, 300],
-      "credentials": {
-        "discordWebhookApi": { "id": "discord-cred-id", "name": "Discord Webhook (Morning Brief)" }
-      },
+      "position": [
+        960,
+        336
+      ],
+      "webhookId": "557ac6c2-b7ce-43e5-a704-3b9c797cc9d5",
       "continueOnFail": true,
       "onError": "continueErrorOutput",
       "notes": "Sends the digest to your Discord channel via webhook. Set up credentials in n8n Credentials store — never hardcode the URL here."
@@ -133,61 +170,158 @@
       "parameters": {
         "jsCode": "// Error handler — log details and surface for investigation\nconst errorData = $input.first().json;\nconst errorMessage = [\n  '⚠️ n8n Workflow Error — Morning Brief',\n  `Time: ${new Date().toUTCString()}`,\n  `Node: ${errorData.execution?.lastNodeExecuted || 'unknown'}`,\n  `Error: ${errorData.execution?.error?.message || JSON.stringify(errorData)}`,\n  'Check your n8n execution log for full details.'\n].join('\\n');\nconsole.error(errorMessage);\nreturn [{ json: { errorMessage, timestamp: new Date().toISOString() } }];"
       },
-      "id": "node-error-handler",
+      "id": "a7c79d22-99ab-4fa4-865c-2c0482e07493",
       "name": "Error Handler",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 520],
+      "position": [
+        176,
+        560
+      ],
       "notes": "Catches errors from any node with continueOnFail. Logs the error and formats an alert message."
     }
   ],
+  "pinData": {},
   "connections": {
     "Schedule Trigger": {
-      "main": [[{ "node": "HN - Fetch Top Story IDs", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "HN - Fetch Top Story IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "HN - Fetch Top Story IDs": {
-      "main": [[{ "node": "Slice Top 5 IDs", "type": "main", "index": 0 }]],
-      "error": [[{ "node": "Error Handler", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Slice Top 5 IDs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Slice Top 5 IDs": {
-      "main": [[{ "node": "HN - Fetch Story Details", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "HN - Fetch Story Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "HN - Fetch Story Details": {
-      "main": [[{ "node": "IF Score >= 100", "type": "main", "index": 0 }]],
-      "error": [[{ "node": "Error Handler", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF Score >= 100",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF Score >= 100": {
       "main": [
-        [{ "node": "Label: HOT", "type": "main", "index": 0 }],
-        [{ "node": "Label: TRENDING", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Label: HOT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Label: TRENDING",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Label: HOT": {
-      "main": [[{ "node": "Build Digest Message", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Digest Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Label: TRENDING": {
-      "main": [[{ "node": "Build Digest Message", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Digest Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Digest Message": {
-      "main": [[{ "node": "Post to Discord", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Post to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Post to Discord": {
-      "main": [[]],
-      "error": [[{ "node": "Error Handler", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "active": false,
   "settings": {
     "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": ""
+    "binaryMode": "separate"
   },
-  "staticData": null,
+  "versionId": "9596b678-b4e3-4929-ad80-6ae51c7eb648",
   "meta": {
-    "templateCredsSetupCompleted": false
+    "instanceId": "ce96cd33fa5c9c1106030ae8db0f9bc65c0f747ca5a90cc968d718e9caa79cae"
   },
-  "pinData": {},
-  "versionId": "1.0.0",
-  "triggerCount": 1,
-  "tags": [{ "name": "morning-brief" }, { "name": "hackernews" }]
+  "id": "lPPYw8yAV920GPcM",
+  "tags": [
+    {
+      "name": "morning-brief",
+      "id": "oCqMXcbu2UpIp43g",
+      "updatedAt": "2026-06-01T10:05:15.018Z",
+      "createdAt": "2026-06-01T10:05:15.018Z"
+    },
+    {
+      "name": "hackernews",
+      "id": "HtsdLyZBWoHzI91T",
+      "updatedAt": "2026-06-01T10:05:15.200Z",
+      "createdAt": "2026-06-01T10:05:15.200Z"
+    }
+  ]
 }
