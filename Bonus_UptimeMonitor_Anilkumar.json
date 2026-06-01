@@ -1,0 +1,137 @@
+{
+  "name": "Bonus_UptimeMonitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      },
+      "id": "node-uptime-trigger",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "Pings the target app every 5 minutes"
+    },
+    {
+      "parameters": {
+        "url": "https://demo.realworld.io",
+        "options": {
+          "timeout": 10000,
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "node-ping-app",
+      "name": "Ping RealWorld App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "notes": "Pings demo.realworld.io and captures status code + response time"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst statusCode = response.statusCode || response.$response?.statusCode || 0;\nconst responseTime = response.$response?.timings?.end || Date.now();\nconst isUp = statusCode === 200;\n\n// Store result for daily summary\nreturn [{\n  json: {\n    statusCode,\n    isUp,\n    url: 'https://demo.realworld.io',\n    checkedAt: new Date().toISOString(),\n    responseTimeMs: responseTime\n  }\n}];"
+      },
+      "id": "node-check-status",
+      "name": "Check Status Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "notes": "Extracts HTTP status code and timestamps the check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-isup",
+              "leftValue": "={{ $json.isUp }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equal" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-up",
+      "name": "IF App is UP",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "notes": "Routes to alert if not 200; silently passes if app is healthy"
+    },
+    {
+      "parameters": {
+        "jsCode": "// App is healthy — log silently, no alert needed\nconst d = $input.first().json;\nconsole.log(`[UPTIME OK] ${d.url} responded ${d.statusCode} at ${d.checkedAt}`);\nreturn [{ json: { status: 'ok', ...d } }];"
+      },
+      "id": "node-log-ok",
+      "name": "Log OK (no alert)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 160],
+      "notes": "Healthy response — just logs, no notification sent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build alert message for down/degraded state\nconst d = $input.first().json;\nconst alert = [\n  '🚨 *UPTIME ALERT*',\n  `URL: ${d.url}`,\n  `Status: ${d.statusCode || 'NO RESPONSE (timeout/connection error)'}`,\n  `Time: ${d.checkedAt}`,\n  'ACTION REQUIRED: App may be down. Please investigate.'\n].join('\\n');\nreturn [{ json: { alert, ...d } }];"
+      },
+      "id": "node-build-alert",
+      "name": "Build Alert Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 440],
+      "notes": "Formats a clear alert message with status and timestamp"
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "discordWebhookApi",
+        "content": "={{ $json.alert }}",
+        "options": {}
+      },
+      "id": "node-discord-alert",
+      "name": "Send Alert to Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [1340, 440],
+      "credentials": {
+        "discordWebhookApi": { "id": "discord-cred-id", "name": "Discord Webhook (Morning Brief)" }
+      },
+      "continueOnFail": true,
+      "notes": "Sends the alert to the same Discord channel used in Task 2"
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [[{ "node": "Ping RealWorld App", "type": "main", "index": 0 }]]
+    },
+    "Ping RealWorld App": {
+      "main": [[{ "node": "Check Status Code", "type": "main", "index": 0 }]],
+      "error": [[{ "node": "Build Alert Message", "type": "main", "index": 0 }]]
+    },
+    "Check Status Code": {
+      "main": [[{ "node": "IF App is UP", "type": "main", "index": 0 }]]
+    },
+    "IF App is UP": {
+      "main": [
+        [{ "node": "Log OK (no alert)", "type": "main", "index": 0 }],
+        [{ "node": "Build Alert Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Alert Message": {
+      "main": [[{ "node": "Send Alert to Discord", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "meta": {},
+  "pinData": {},
+  "tags": [{ "name": "uptime-monitor" }]
+}
